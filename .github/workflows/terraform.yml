@@ -48,6 +48,7 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
+    branches: [ "main" ]
 
 permissions:
   contents: read
@@ -93,19 +94,37 @@ jobs:
 
     # Generates an execution plan for Terraform
     - name: Terraform Plan
-      run: terraform plan -out=tfplan.binary
+      id: plan
+      run: terraform plan
+
+    # ------------------------------------------
+    # 8. Upload Plan to PR (Pull Request feedback)
+    # ------------------------------------------
+
+    - name: Add Plan to PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `### Terraform Plan Output\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\``
+          })
+
 
     # -----------------------------
     # 7. Upload Plan Artifact
     # -----------------------------
-    - name: Upload Plan Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: terraform-plan
-        path: tfplan.binary
+    # - name: Upload Plan Artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: terraform-plan
+    #     path: tfplan.binary
 
       # On push to "main", build or change infrastructure according to Terraform configuration files
       # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
     #- name: Terraform Apply
-     # if: github.ref == 'refs/heads/"main"' && github.event_name == 'push'
+    #  if: github.ref == 'refs/heads/"main"' && github.event_name == 'push'
       #run: terraform apply -auto-approve -input=false
